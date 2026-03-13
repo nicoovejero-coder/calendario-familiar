@@ -1,8 +1,7 @@
-// Importaciones de Firebase SDK (CDN)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getDatabase, ref, onValue, push, set, remove, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
-// Configuración de Firebase (proporcionada por el usuario)
+// Configuración de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDvBMIMiDuKU97R8Wie-0-T7I_BTrIS-Y8",
   authDomain: "calendario-familia-5aa5a.firebaseapp.com",
@@ -13,48 +12,171 @@ const firebaseConfig = {
   appId: "1:1083605159756:web:39edd3af88e3036f3f09e9"
 };
 
-// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const eventsRef = ref(db, 'events'); // Ruta en la base de datos donde se guardarán las actividades
 
-// Referencias del DOM
-const currentDateEl = document.getElementById('currentDate');
+// Estado de la aplicación
+let currentDate = new Date(); // Mes y año actual que se está visualizando en el calendario
+let selectedDateStr = null;   // Formato YYYY-MM-DD del día al que hicimos clic
+let allEventsCache = {};      // Caché de todos los eventos desde Firebase
+let unsubscribeEvents = null; // Para limpiar el listener si es necesario
+
+// Constantes visuales
+const HOUR_HEIGHT = 80;
+
+// Referencias del DOM - Calendario Principal
+const currentMonthDisplay = document.getElementById('currentMonthDisplay');
+const calendarGrid = document.getElementById('calendarGrid');
+const prevMonthBtn = document.getElementById('prevMonth');
+const nextMonthBtn = document.getElementById('nextMonth');
+const todayBtn = document.getElementById('todayBtn');
+
+// Referencias del DOM - Day Overlay
+const dayOverlay = document.getElementById('dayOverlay');
+const closeDayBtn = document.getElementById('closeDayBtn');
+const selectedDateDisplay = document.getElementById('selectedDateDisplay');
 const timelineHoursEl = document.getElementById('timelineHours');
 const timelineEventsEl = document.getElementById('timelineEvents');
+const currTimeLine = document.getElementById('currentTimeLine');
 const addBtn = document.getElementById('addBtn');
+
+// Referencias del DOM - Modal Formulario
 const eventModal = document.getElementById('eventModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const eventForm = document.getElementById('eventForm');
 const modalTitle = document.getElementById('modalTitle');
 const deleteBtn = document.getElementById('deleteBtn');
-const currTimeLine = document.getElementById('currentTimeLine');
 
-// Configuración visual (debe coincidir con CSS --hour-height)
-const HOUR_HEIGHT = 80;
-
-let currentEvents = {}; // Para almacenar los eventos obtenidos de Firebase
-
-// Inicialización de la aplicación
+// === INICIALIZACIÓN ===
 function init() {
-    updateDateDisplay();
-    generateHourMarkers();
     setupEventListeners();
-    fetchEventsRealtime();
-    updateCurrentTimeLine();
+    generateHourMarkers();
     
-    // Actualizar la línea de tiempo cada minuto
+    // Iniciar renderizado del calendario
+    renderCalendar();
+    
+    // Conectar Firebase
+    listenAllEvents();
+    
+    // Línea de tiempo actual
     setInterval(updateCurrentTimeLine, 60000);
 }
 
-// Muestra la fecha actual en español
-function updateDateDisplay() {
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+// === LÓGICA DEL CALENDARIO MENSUAL ===
+function renderCalendar() {
+    calendarGrid.innerHTML = '';
+    
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth(); // 0-11
+    
+    // Formatear Mes y Año para el header
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    currentMonthDisplay.textContent = `${monthNames[month]} ${year}`;
+    
+    // Calcular días del mes
+    const firstDay = new Date(year, month, 1).getDay(); // 0(Dom) a 6(Sab)
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // Fecha de hoy para resaltarlo
     const today = new Date();
-    currentDateEl.textContent = today.toLocaleDateString('es-ES', options);
+    const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
+    const currentDay = today.getDate();
+    
+    // Rellenar espacios en blanco antes del primer día del mes
+    for (let i = 0; i < firstDay; i++) {
+        const emptySlot = document.createElement('div');
+        emptySlot.className = 'calendar-day empty';
+        calendarGrid.appendChild(emptySlot);
+    }
+    
+    // Generar días
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dayStr = formatDateStr(year, month, day);
+        const dayCell = document.createElement('div');
+        dayCell.className = 'calendar-day';
+        dayCell.dataset.date = dayStr;
+        
+        if (isCurrentMonth && day === currentDay) {
+            dayCell.classList.add('today');
+        }
+        
+        // Verificar si tiene eventos en caché
+        if (allEventsCache[dayStr]) {
+            dayCell.classList.add('has-events');
+        }
+        
+        dayCell.innerHTML = `<span class="day-num">${day}</span>`;
+        dayCell.addEventListener('click', () => openDayOverlay(year, month, day));
+        
+        calendarGrid.appendChild(dayCell);
+    }
 }
 
-// Genera los marcadores de hora (00:00 - 23:00)
+function changeMonth(delta) {
+    currentDate.setMonth(currentDate.getMonth() + delta);
+    renderCalendar();
+}
+
+function goToToday() {
+    currentDate = new Date();
+    renderCalendar();
+    const todayStr = formatDateStr(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+    
+    // Si queremos que abrira el día de hoy automáticamente:
+    // openDayOverlay(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+}
+
+// Devuelve string YYYY-MM-DD
+function formatDateStr(y, m, d) {
+    return `${y}-${(m+1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+}
+
+// === LÓGICA DEL DAY OVERLAY ===
+function openDayOverlay(year, month, day) {
+    selectedDateStr = formatDateStr(year, month, day);
+    
+    // Configurar texto del header
+    const selectedObj = new Date(year, month, day);
+    const options = { weekday: 'long', day: 'numeric', month: 'long' };
+    selectedDateDisplay.textContent = selectedObj.toLocaleDateString('es-ES', options);
+    
+    // Renderizar los eventos específicos de ESTE día
+    renderEventsForSelectedDay();
+    
+    // Control de la línea de tiempo roja (solo mostrar si es el día de HOY)
+    const todayStr = formatDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+    if (selectedDateStr === todayStr) {
+        currTimeLine.classList.remove('hidden');
+        updateCurrentTimeLine();
+    } else {
+        currTimeLine.classList.add('hidden');
+    }
+    
+    // Animar la entrada
+    dayOverlay.classList.add('active');
+    
+    // Scroll inicial suave
+    if (selectedDateStr === todayStr && !window.initialOverlayScrollDone) {
+        setTimeout(() => {
+            const container = document.querySelector('.timeline-container');
+            const now = new Date();
+            const currentMins = now.getHours() * 60 + now.getMinutes();
+            const topPx = (currentMins / 60) * HOUR_HEIGHT;
+            const scrollTo = topPx - (container.clientHeight / 2) + HOUR_HEIGHT;
+            container.scrollTop = Math.max(0, scrollTo);
+            window.initialOverlayScrollDone = true;
+        }, 400); // Esperar que termine la animación
+    } else {
+        document.querySelector('.timeline-container').scrollTop = 0;
+    }
+}
+
+function closeDayOverlay() {
+    dayOverlay.classList.remove('active');
+    selectedDateStr = null;
+    window.initialOverlayScrollDone = false; // reset
+}
+
 function generateHourMarkers() {
     let hoursHtml = '';
     for (let i = 0; i < 24; i++) {
@@ -68,175 +190,19 @@ function generateHourMarkers() {
     timelineHoursEl.innerHTML = hoursHtml;
 }
 
-// Configura los escuchadores de eventos
-function setupEventListeners() {
-    addBtn.addEventListener('click', () => openModal());
-    closeModalBtn.addEventListener('click', closeModal);
-    eventForm.addEventListener('submit', handleFormSubmit);
-    deleteBtn.addEventListener('click', handleDeleteEvent);
-    
-    // Cerrar modal al tocar fuera del contenido
-    eventModal.addEventListener('click', (e) => {
-        if (e.target === eventModal) closeModal();
-    });
-}
-
-// === Funciones del Modal ===
-
-// Abrir el modal (sirve para Crear y Editar)
-function openModal(eventId = null) {
-    eventForm.reset();
-    document.getElementById('eventId').value = '';
-    
-    // Animar la entrada
-    eventModal.classList.add('active');
-    
-    if (eventId && currentEvents[eventId]) {
-        // Modo Edición
-        modalTitle.textContent = 'Editar Actividad';
-        deleteBtn.classList.remove('hidden');
-        
-        const event = currentEvents[eventId];
-        document.getElementById('eventId').value = eventId;
-        document.getElementById('eventTitle').value = event.title;
-        document.getElementById('startTime').value = event.startTime;
-        document.getElementById('endTime').value = event.endTime;
-        document.getElementById('eventNotes').value = event.notes || '';
-    } else {
-        // Modo Creación
-        modalTitle.textContent = 'Nueva Actividad';
-        deleteBtn.classList.add('hidden');
-        
-        // Autocompletar con la hora actual y la siguiente
-        const now = new Date();
-        const startH = now.getHours().toString().padStart(2, '0');
-        const startM = now.getMinutes().toString().padStart(2, '0');
-        
-        const endH = ((now.getHours() + 1) % 24).toString().padStart(2, '0');
-        
-        document.getElementById('startTime').value = `${startH}:${startM}`;
-        document.getElementById('endTime').value = `${endH}:${startM}`;
-    }
-    
-    // Pequeño timeout para enfocar el título en dispositivos que lo soporten
-    setTimeout(() => {
-        document.getElementById('eventTitle').focus();
-    }, 100);
-}
-
-// Cerrar el modal
-function closeModal() {
-    eventModal.classList.remove('active');
-    setTimeout(() => {
-        eventForm.reset();
-    }, 300); // Esperar a que termine la animación
-}
-
-// === Operaciones con Firebase ===
-
-// Guardar o Actualizar Evento
-function handleFormSubmit(e) {
-    e.preventDefault(); // Evitar recarga de página
-    
-    const eventId = document.getElementById('eventId').value;
-    
-    const title = document.getElementById('eventTitle').value.trim();
-    const startTime = document.getElementById('startTime').value;
-    const endTime = document.getElementById('endTime').value;
-    const notes = document.getElementById('eventNotes').value.trim();
-    
-    // Validación básica de tiempo
-    if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
-        alert("La hora de fin debe ser mayor a la hora de inicio.");
-        return;
-    }
-
-    const eventData = { title, startTime, endTime, notes };
-
-    // Bloquear el botón mientras guarda
-    const submitBtn = eventForm.querySelector('button[type="submit"]');
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = 'Guardando...';
-    submitBtn.disabled = true;
-
-    if (eventId) {
-        // Actualizar existente
-        update(ref(db, `events/${eventId}`), eventData)
-            .then(() => closeModal())
-            .catch(error => {
-                console.error(error);
-                alert("Error al actualizar la actividad.");
-            })
-            .finally(() => {
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
-            });
-    } else {
-        // Crear nuevo (Push genera un ID único automáticamente)
-        push(eventsRef, eventData)
-            .then(() => closeModal())
-            .catch(error => {
-                console.error(error);
-                alert("Error al guardar la actividad.");
-            })
-            .finally(() => {
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
-            });
-    }
-}
-
-// Eliminar Evento
-function handleDeleteEvent() {
-    const eventId = document.getElementById('eventId').value;
-    if (eventId) {
-        if (confirm('¿Estás seguro de que quieres eliminar esta actividad para todos?')) {
-            const btn = document.getElementById('deleteBtn');
-            btn.textContent = '...';
-            btn.disabled = true;
-            
-            remove(ref(db, `events/${eventId}`))
-                .then(() => closeModal())
-                .catch(error => alert("Error al eliminar."))
-                .finally(() => {
-                    btn.textContent = 'Eliminar';
-                    btn.disabled = false;
-                });
-        }
-    }
-}
-
-// === Lógica de la Interfaz y Sincronización Real-time ===
-
-// Conectar con Firebase y escuchar cambios en tiempo real
-function fetchEventsRealtime() {
-    // onValue se dispara cada vez que cambian los datos en Firebase
-    onValue(eventsRef, (snapshot) => {
-        const data = snapshot.val();
-        currentEvents = data || {};
-        renderEvents();
-    }, (error) => {
-        console.error("Firebase read failed: " + error.code);
-    });
-}
-
-// Convierte "HH:MM" a minutos totales (ej "01:30" = 90)
-function timeToMinutes(timeStr) {
-    if (!timeStr) return 0;
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours * 60 + minutes;
-}
-
-// Dibuja los eventos en el calendario
-function renderEvents() {
-    // Limpiamos los eventos anteriores
+// === MOSTRAR EVENTOS EN EL TIMELINE DENTRO DEL DAY OVERLAY ===
+function renderEventsForSelectedDay() {
     timelineEventsEl.innerHTML = '';
     
-    Object.entries(currentEvents).forEach(([id, event]) => {
+    if (!selectedDateStr) return;
+    
+    const dayEvents = allEventsCache[selectedDateStr];
+    if (!dayEvents) return; // No hay eventos este día
+    
+    Object.entries(dayEvents).forEach(([id, event]) => {
         const startMins = timeToMinutes(event.startTime);
         const endMins = timeToMinutes(event.endTime);
         
-        // Calcular posicionamiento y tamaño usando position: absolute
         const topPx = (startMins / 60) * HOUR_HEIGHT;
         const heightPx = ((endMins - startMins) / 60) * HOUR_HEIGHT;
         
@@ -245,14 +211,10 @@ function renderEvents() {
         card.style.top = `${topPx}px`;
         card.style.height = `${heightPx}px`;
         
-        // Colores consistentes y algo aleatorios basados en el título
-        const hue = Array.from(event.title || "A")
-            .reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360;
+        // Colores verde esmeralda para coincidir con la temática del calentario
+        card.style.borderLeftColor = `#22c55e`; // Green-500
+        card.style.backgroundColor = `rgba(34, 197, 94, 0.15)`; // Translucent Green
         
-        card.style.borderLeftColor = `hsl(${hue}, 80%, 65%)`;
-        card.style.backgroundColor = `hsla(${hue}, 80%, 60%, 0.15)`;
-        
-        // Si la tarjeta es muy pequeña, ajustamos el layout
         const isSmall = heightPx < 40;
         
         card.innerHTML = `
@@ -260,31 +222,150 @@ function renderEvents() {
             ${!isSmall ? `<div class="time"><i class="far fa-clock"></i> ${event.startTime} - ${event.endTime}</div>` : ''}
         `;
         
-        // Click para editar
-        card.addEventListener('click', () => openModal(id));
-        
+        // Editar
+        card.addEventListener('click', () => openEventModal(id, event));
         timelineEventsEl.appendChild(card);
     });
 }
 
-// Actualiza la línea roja indicando la hora actual
+function timeToMinutes(timeStr) {
+    if (!timeStr) return 0;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+}
+
 function updateCurrentTimeLine() {
+    if (currTimeLine.classList.contains('hidden')) return;
     const now = new Date();
     const currentMins = now.getHours() * 60 + now.getMinutes();
-    
-    // Posición Y
     const topPx = (currentMins / 60) * HOUR_HEIGHT;
     currTimeLine.style.top = `${topPx}px`;
+}
+
+// === FIREBASE: SINCRONIZACIÓN Y CRUD ===
+function listenAllEvents() {
+    const eventsRef = ref(db, 'events');
     
-    // Si la página recién carga, scrollear para que se vea la hora actual un poco más arriba del centro
-    if(!window.initialScrollDone) {
-        const container = document.querySelector('.timeline-container');
-        // Centrar
-        const scrollTo = topPx - (container.clientHeight / 2) + HOUR_HEIGHT;
-        container.scrollTop = Math.max(0, scrollTo);
-        window.initialScrollDone = true;
+    onValue(eventsRef, (snapshot) => {
+        const data = snapshot.val();
+        // Estructura esperada: events => { "2023-10-31": { id1: {...}, id2: {...} }, "2023-11-01": {...} }
+        allEventsCache = data || {};
+        
+        // Volver a renderizar el calendario (para actualizar las luces verdes)
+        renderCalendar();
+        
+        // Si el DayOverlay está abierto, re-renderizar sus eventos específicos
+        if (selectedDateStr && dayOverlay.classList.contains('active')) {
+            renderEventsForSelectedDay();
+        }
+    });
+}
+
+// === MODAL FORMULARIO DE EVENTO ===
+function openEventModal(eventId = null, eventObj = null) {
+    eventForm.reset();
+    document.getElementById('eventId').value = eventId || '';
+    
+    eventModal.classList.add('active');
+    
+    if (eventId && eventObj) {
+        // Modo Editar
+        modalTitle.textContent = 'Editar Actividad';
+        deleteBtn.classList.remove('hidden');
+        
+        document.getElementById('eventTitle').value = eventObj.title;
+        document.getElementById('startTime').value = eventObj.startTime;
+        document.getElementById('endTime').value = eventObj.endTime;
+        document.getElementById('eventNotes').value = eventObj.notes || '';
+    } else {
+        // Modo Crear
+        modalTitle.textContent = 'Nueva Actividad';
+        deleteBtn.classList.add('hidden');
+        
+        const now = new Date();
+        const startH = now.getHours().toString().padStart(2, '0');
+        const startM = now.getMinutes().toString().padStart(2, '0');
+        const endH = ((now.getHours() + 1) % 24).toString().padStart(2, '0');
+        
+        document.getElementById('startTime').value = `${startH}:${startM}`;
+        document.getElementById('endTime').value = `${endH}:${startM}`;
+    }
+    
+    setTimeout(() => document.getElementById('eventTitle').focus(), 100);
+}
+
+function closeEventModal() {
+    eventModal.classList.remove('active');
+    setTimeout(() => eventForm.reset(), 300);
+}
+
+function handleFormSubmit(e) {
+    e.preventDefault();
+    
+    if (!selectedDateStr) return; // Por seguridad, debemos estar en un día específico
+    
+    const eventId = document.getElementById('eventId').value;
+    const title = document.getElementById('eventTitle').value.trim();
+    const startTime = document.getElementById('startTime').value;
+    const endTime = document.getElementById('endTime').value;
+    const notes = document.getElementById('eventNotes').value.trim();
+    
+    if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+        alert("La hora de fin debe ser mayor a la hora de inicio.");
+        return;
+    }
+
+    const eventData = { title, startTime, endTime, notes };
+    const submitBtn = eventForm.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Guardando...';
+    submitBtn.disabled = true;
+
+    // Guardar en la ruta específica del día: events/YYYY-MM-DD/id
+    if (eventId) {
+        update(ref(db, `events/${selectedDateStr}/${eventId}`), eventData)
+            .then(() => closeEventModal())
+            .catch(e => alert("Error " + e))
+            .finally(() => { submitBtn.textContent = originalText; submitBtn.disabled = false; });
+    } else {
+        push(ref(db, `events/${selectedDateStr}`), eventData)
+            .then(() => closeEventModal())
+            .catch(e => alert("Error " + e))
+            .finally(() => { submitBtn.textContent = originalText; submitBtn.disabled = false; });
     }
 }
 
-// Iniciar aplicación cuando el DOM esté listo
+function handleDeleteEvent() {
+    const eventId = document.getElementById('eventId').value;
+    if (eventId && selectedDateStr) {
+        if (confirm('¿Eliminar actividad para todos?')) {
+            const btn = document.getElementById('deleteBtn');
+            btn.textContent = '...'; btn.disabled = true;
+            
+            remove(ref(db, `events/${selectedDateStr}/${eventId}`))
+                .then(() => closeEventModal())
+                .catch(e => alert("Error"))
+                .finally(() => { btn.textContent = 'Eliminar'; btn.disabled = false; });
+        }
+    }
+}
+
+// === EVENT LISTENERS DOM ===
+function setupEventListeners() {
+    prevMonthBtn.addEventListener('click', () => changeMonth(-1));
+    nextMonthBtn.addEventListener('click', () => changeMonth(1));
+    todayBtn.addEventListener('click', goToToday);
+    
+    closeDayBtn.addEventListener('click', closeDayOverlay);
+    
+    addBtn.addEventListener('click', () => openEventModal());
+    closeModalBtn.addEventListener('click', closeEventModal);
+    eventForm.addEventListener('submit', handleFormSubmit);
+    deleteBtn.addEventListener('click', handleDeleteEvent);
+    
+    eventModal.addEventListener('click', (e) => {
+        if (e.target === eventModal) closeEventModal();
+    });
+}
+
 document.addEventListener('DOMContentLoaded', init);

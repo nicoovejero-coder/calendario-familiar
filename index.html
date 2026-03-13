@@ -3,34 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cronograma Familiar</title>
+    <title>Cronograma Familiar Mensual</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
-        <header class="glass-header">
-            <h1>Cronograma Familiar</h1>
-            <div class="date-display" id="currentDate">Cargando fecha...</div>
-        </header>
+        <!-- VISTA DE CALENDARIO MENSUAL -->
+        <div id="calendarView" class="view-active">
+            <header class="glass-header">
+                <h1>Cronograma</h1>
+                <div class="month-navigation">
+                    <button class="icon-btn" id="prevMonth"><i class="fas fa-chevron-left"></i></button>
+                    <div class="current-month" id="currentMonthDisplay">Cargando...</div>
+                    <button class="icon-btn" id="nextMonth"><i class="fas fa-chevron-right"></i></button>
+                    <button class="icon-btn" id="todayBtn" title="Ir a Hoy"><i class="far fa-calendar-check"></i></button>
+                </div>
+            </header>
 
-        <main class="timeline-container">
-            <div class="timeline-hours" id="timelineHours">
-                <!-- Las horas se generarán desde JS -->
-            </div>
-            <div class="timeline-events" id="timelineEvents">
-                <!-- Los eventos (actividades) irán acá -->
-            </div>
-            <!-- Línea de tiempo actual -->
-            <div class="current-time-line" id="currentTimeLine">
-                <div class="dot"></div>
-            </div>
-        </main>
+            <main class="calendar-main">
+                <div class="weekdays-grid">
+                    <div>Dom</div><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div>
+                </div>
+                <div class="days-grid" id="calendarGrid">
+                    <!-- Los días del mes se generan aquí con JS -->
+                </div>
+            </main>
+        </div>
 
-        <button class="fab" id="addBtn">
-            <i class="fas fa-plus"></i>
-        </button>
+        <!-- VISTA DE DETALLE POR DÍA (Panel deslizante) -->
+        <div id="dayOverlay" class="day-overlay">
+            <div class="day-overlay-header glass-header">
+                <button class="icon-btn" id="closeDayBtn"><i class="fas fa-arrow-left"></i></button>
+                <div class="selected-date-display" id="selectedDateDisplay">Selecciona un día</div>
+                <div style="width: 40px;"></div> <!-- Spacer -->
+            </div>
+            
+            <main class="timeline-container">
+                <div class="timeline-hours" id="timelineHours">
+                    <!-- Las horas se generarán desde JS -->
+                </div>
+                <div class="timeline-events" id="timelineEvents">
+                    <!-- Los eventos (actividades) irán acá -->
+                </div>
+                <!-- Línea de tiempo actual -->
+                <div class="current-time-line hidden" id="currentTimeLine">
+                    <div class="dot"></div>
+                </div>
+            </main>
+            
+            <button class="fab hidden" id="addBtn">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
 
         <!-- Modal para agregar/editar actividades -->
         <div class="modal-overlay" id="eventModal">
@@ -72,7 +98,7 @@
         </div>
     </div>
 
-    <!-- Script de lógica de la App con Firebase -->
+    <!-- Script principal con Firebase -->
     <script type="module" src="app.js"></script>
 </body>
 </html>
