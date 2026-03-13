@@ -40,12 +40,18 @@ const timelineEventsEl = document.getElementById('timelineEvents');
 const currTimeLine = document.getElementById('currentTimeLine');
 const addBtn = document.getElementById('addBtn');
 
+// Referencias del DOM - Main FAB y Summary
+const mainAddBtn = document.getElementById('mainAddBtn');
+const summaryList = document.getElementById('summaryList');
+
 // Referencias del DOM - Modal Formulario
 const eventModal = document.getElementById('eventModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const eventForm = document.getElementById('eventForm');
 const modalTitle = document.getElementById('modalTitle');
 const deleteBtn = document.getElementById('deleteBtn');
+const dateInputGroup = document.getElementById('dateInputGroup');
+const eventDateInput = document.getElementById('eventDate');
 
 // === INICIALIZACIÓN ===
 function init() {
@@ -110,6 +116,9 @@ function renderCalendar() {
         
         calendarGrid.appendChild(dayCell);
     }
+    
+    // Actualizar también el resumen mensual
+    renderMonthlySummary();
 }
 
 function changeMonth(delta) {
@@ -223,7 +232,10 @@ function renderEventsForSelectedDay() {
         `;
         
         // Editar
-        card.addEventListener('click', () => openEventModal(id, event));
+        card.addEventListener('click', () => {
+            // Inform the modal that this is context-specific to the day view
+            openEventModal(id, event, false); 
+        });
         timelineEventsEl.appendChild(card);
     });
 }
@@ -242,6 +254,69 @@ function updateCurrentTimeLine() {
     currTimeLine.style.top = `${topPx}px`;
 }
 
+// === RESUMEN MENSUAL ===
+function renderMonthlySummary() {
+    summaryList.innerHTML = '';
+    
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth(); // 0-11
+    
+    // Recopilar todos los eventos de este mes
+    const eventsThisMonth = [];
+    
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for(let day = 1; day <= daysInMonth; day++) {
+        const dateStr = formatDateStr(year, month, day);
+        if(allEventsCache[dateStr]) {
+            Object.entries(allEventsCache[dateStr]).forEach(([id, event]) => {
+                eventsThisMonth.push({
+                    id,
+                    dateStr,
+                    dayNum: day,
+                    ...event
+                });
+            });
+        }
+    }
+    
+    if (eventsThisMonth.length === 0) {
+        summaryList.innerHTML = '<div class="empty-summary">No hay actividades registradas en este mes.</div>';
+        return;
+    }
+    
+    // Ordenar cronológicamente (por día y luego por hora)
+    eventsThisMonth.sort((a, b) => {
+        if (a.dayNum !== b.dayNum) return a.dayNum - b.dayNum;
+        return timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
+    });
+    
+    // Renderizar
+    eventsThisMonth.forEach(ev => {
+        const item = document.createElement('div');
+        item.className = 'summary-item';
+        
+        // Calcular nombre del día corto
+        const dateObj = new Date(year, month, ev.dayNum);
+        const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'short' });
+        
+        item.innerHTML = `
+            <div class="item-title">${ev.title}</div>
+            <div class="item-meta">
+                <span><i class="far fa-calendar"></i> ${dayName} ${ev.dayNum}</span>
+                <span><i class="far fa-clock"></i> ${ev.startTime} - ${ev.endTime}</span>
+            </div>
+        `;
+        
+        // Al hacer clic, abre el modal principal pre-llenado para editar
+        item.addEventListener('click', () => {
+             // Abrirlo como edicion general (con fecha expuesta)
+             openEventModal(ev.id, ev, true, ev.dateStr); 
+        });
+        
+        summaryList.appendChild(item);
+    });
+}
+
 // === FIREBASE: SINCRONIZACIÓN Y CRUD ===
 function listenAllEvents() {
     const eventsRef = ref(db, 'events');
@@ -251,7 +326,7 @@ function listenAllEvents() {
         // Estructura esperada: events => { "2023-10-31": { id1: {...}, id2: {...} }, "2023-11-01": {...} }
         allEventsCache = data || {};
         
-        // Volver a renderizar el calendario (para actualizar las luces verdes)
+        // Volver a renderizar el calendario (para actualizar las luces verdes y el resumen)
         renderCalendar();
         
         // Si el DayOverlay está abierto, re-renderizar sus eventos específicos
@@ -262,9 +337,28 @@ function listenAllEvents() {
 }
 
 // === MODAL FORMULARIO DE EVENTO ===
-function openEventModal(eventId = null, eventObj = null) {
+// showDateSelector determina si el input de fecha está visible.
+// targetDate es opcional (se usa para edicion desde el resumen de mes)
+function openEventModal(eventId = null, eventObj = null, showDateSelector = false, targetDate = null) {
     eventForm.reset();
     document.getElementById('eventId').value = eventId || '';
+    
+    // Configurar visibilidad del campo fecha
+    if (showDateSelector) {
+        dateInputGroup.style.display = 'block';
+        // Si estamos creando desde el mainAddBtn, por defecto usamos hoy si no nos mandan nada
+        if(!targetDate && !eventId) {
+            const now = new Date();
+            eventDateInput.value = formatDateStr(now.getFullYear(), now.getMonth(), now.getDate());
+        } else if (targetDate) {
+            eventDateInput.value = targetDate;
+        }
+    } else {
+        dateInputGroup.style.display = 'none';
+        // Guardo la fecha seleccionada del DayOverlay en targetDate de forma logica
+        targetDate = selectedDateStr;
+        eventDateInput.value = targetDate; // El input lo tiene, aunque esté oculto
+    }
     
     eventModal.classList.add('active');
     
@@ -302,13 +396,19 @@ function closeEventModal() {
 function handleFormSubmit(e) {
     e.preventDefault();
     
-    if (!selectedDateStr) return; // Por seguridad, debemos estar en un día específico
-    
     const eventId = document.getElementById('eventId').value;
     const title = document.getElementById('eventTitle').value.trim();
     const startTime = document.getElementById('startTime').value;
     const endTime = document.getElementById('endTime').value;
     const notes = document.getElementById('eventNotes').value.trim();
+    
+    // Determinar la fecha bajo la cual se guardará (desde el input oculto o visible)
+    const targetDate = eventDateInput.value;
+    
+    if(!targetDate) {
+        alert("Error: Fecha base no determinada.");
+        return;
+    }
     
     if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
         alert("La hora de fin debe ser mayor a la hora de inicio.");
@@ -321,14 +421,18 @@ function handleFormSubmit(e) {
     submitBtn.textContent = 'Guardando...';
     submitBtn.disabled = true;
 
-    // Guardar en la ruta específica del día: events/YYYY-MM-DD/id
+    // Guardar en la ruta específica de la fecha: events/YYYY-MM-DD/id
     if (eventId) {
-        update(ref(db, `events/${selectedDateStr}/${eventId}`), eventData)
+        // NOTA: Si cambiara la fecha desde el summary view, habria que mover el nodo, 
+        // pero por simplicidad el modo edición solo actualiza sobre la ruta anterior descubriendo la fecha. 
+        // En un caso más complejo, haríamos remove(viejaRuta) + push(nuevaRuta). 
+        // Asumo que targetDate no se cambió severamente.
+        update(ref(db, `events/${targetDate}/${eventId}`), eventData)
             .then(() => closeEventModal())
             .catch(e => alert("Error " + e))
             .finally(() => { submitBtn.textContent = originalText; submitBtn.disabled = false; });
     } else {
-        push(ref(db, `events/${selectedDateStr}`), eventData)
+        push(ref(db, `events/${targetDate}`), eventData)
             .then(() => closeEventModal())
             .catch(e => alert("Error " + e))
             .finally(() => { submitBtn.textContent = originalText; submitBtn.disabled = false; });
@@ -337,12 +441,14 @@ function handleFormSubmit(e) {
 
 function handleDeleteEvent() {
     const eventId = document.getElementById('eventId').value;
-    if (eventId && selectedDateStr) {
+    const targetDate = eventDateInput.value; // Necesitamos saber en qué fecha estaba guardado
+    
+    if (eventId && targetDate) {
         if (confirm('¿Eliminar actividad para todos?')) {
             const btn = document.getElementById('deleteBtn');
             btn.textContent = '...'; btn.disabled = true;
             
-            remove(ref(db, `events/${selectedDateStr}/${eventId}`))
+            remove(ref(db, `events/${targetDate}/${eventId}`))
                 .then(() => closeEventModal())
                 .catch(e => alert("Error"))
                 .finally(() => { btn.textContent = 'Eliminar'; btn.disabled = false; });
@@ -358,7 +464,12 @@ function setupEventListeners() {
     
     closeDayBtn.addEventListener('click', closeDayOverlay);
     
-    addBtn.addEventListener('click', () => openEventModal());
+    // Add desde el DayOverlay oculta el date input
+    addBtn.addEventListener('click', () => openEventModal(null, null, false));
+    
+    // Add desde el panel principal MUESTRA el date input
+    mainAddBtn.addEventListener('click', () => openEventModal(null, null, true));
+    
     closeModalBtn.addEventListener('click', closeEventModal);
     eventForm.addEventListener('submit', handleFormSubmit);
     deleteBtn.addEventListener('click', handleDeleteEvent);

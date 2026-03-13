@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -30,6 +30,18 @@
                     <!-- Los días del mes se generan aquí con JS -->
                 </div>
             </main>
+            
+            <section class="monthly-summary">
+                <h3 class="summary-title"><i class="fas fa-list-ul"></i> Resumen del Mes</h3>
+                <div class="summary-list" id="summaryList">
+                    <!-- Lista cronológica de eventos del mes -->
+                </div>
+            </section>
+
+            <!-- Main Screen FAB -->
+            <button class="fab" id="mainAddBtn">
+                <i class="fas fa-plus"></i>
+            </button>
         </div>
 
         <!-- VISTA DE DETALLE POR DÍA (Panel deslizante) -->
@@ -71,6 +83,11 @@
                     <div class="form-group">
                         <label for="eventTitle">Título</label>
                         <input type="text" id="eventTitle" required placeholder="Ej. Reunión familiar" autocomplete="off">
+                    </div>
+                    
+                    <div class="form-group" id="dateInputGroup">
+                        <label for="eventDate">Fecha</label>
+                        <input type="date" id="eventDate" required>
                     </div>
                     
                     <div class="form-row">
