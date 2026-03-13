@@ -84,6 +84,17 @@
                         <label for="eventTitle">Título</label>
                         <input type="text" id="eventTitle" required placeholder="Ej. Reunión familiar" autocomplete="off">
                     </div>
+
+                    <div class="form-group">
+                        <label for="eventUser">Responsable</label>
+                        <select id="eventUser" required>
+                            <option value="" disabled selected>Seleccionar familiar...</option>
+                            <option value="Nico">Nico</option>
+                            <option value="Mamá">Mamá</option>
+                            <option value="Papá">Papá</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
                     
                     <div class="form-group" id="dateInputGroup">
                         <label for="eventDate">Fecha</label>
