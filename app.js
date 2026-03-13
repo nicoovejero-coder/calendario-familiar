@@ -414,6 +414,7 @@ function closeEventModal() {
 
 function handleFormSubmit(e) {
     e.preventDefault();
+    console.log("Form submit triggered");
     
     const eventId = document.getElementById('eventId').value;
     const title = document.getElementById('eventTitle').value.trim();
@@ -423,6 +424,8 @@ function handleFormSubmit(e) {
     
     // Determinar la fecha bajo la cual se guardará (desde el input oculto o visible)
     const targetDate = eventDateInput.value;
+    
+    console.log("Data to save:", { eventId, title, startTime, endTime, targetDate });
     
     if(!targetDate) {
         alert("Error: Fecha base no determinada.");
