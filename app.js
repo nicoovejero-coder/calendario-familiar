@@ -309,10 +309,9 @@ function renderMonthlySummary() {
             </div>
         `;
         
-        // Al hacer clic, abre el modal principal pre-llenado para editar
+        // Al hacer clic, abre el modal en modo Solo Lectura
         item.addEventListener('click', () => {
-             // Abrirlo como edicion general (con fecha expuesta)
-             openEventModal(ev.id, ev, true, ev.dateStr); 
+             openEventModal(ev.id, ev, true, ev.dateStr, true); 
         });
         
         summaryList.appendChild(item);
@@ -341,14 +340,14 @@ function listenAllEvents() {
 // === MODAL FORMULARIO DE EVENTO ===
 // showDateSelector determina si el input de fecha está visible.
 // targetDate es opcional (se usa para edicion desde el resumen de mes)
-function openEventModal(eventId = null, eventObj = null, showDateSelector = false, targetDate = null) {
+// isReadOnly determina si el modal permite o no cambios
+function openEventModal(eventId = null, eventObj = null, showDateSelector = false, targetDate = null, isReadOnly = false) {
     eventForm.reset();
     document.getElementById('eventId').value = eventId || '';
     
     // Configurar visibilidad del campo fecha
     if (showDateSelector) {
         dateInputGroup.style.display = 'block';
-        // Si estamos creando desde el mainAddBtn, por defecto usamos hoy si no nos mandan nada
         if(!targetDate && !eventId) {
             const now = new Date();
             eventDateInput.value = formatDateStr(now.getFullYear(), now.getMonth(), now.getDate());
@@ -357,17 +356,33 @@ function openEventModal(eventId = null, eventObj = null, showDateSelector = fals
         }
     } else {
         dateInputGroup.style.display = 'none';
-        // Guardo la fecha seleccionada del DayOverlay en targetDate de forma logica
         targetDate = selectedDateStr;
-        eventDateInput.value = targetDate; // El input lo tiene, aunque esté oculto
+        eventDateInput.value = targetDate;
     }
     
+    // Configurar si es Solo Lectura
+    const formInputs = eventForm.querySelectorAll('input, textarea');
+    const submitBtn = eventForm.querySelector('button[type="submit"]');
+    
+    if (isReadOnly) {
+        modalTitle.textContent = 'Detalles de Actividad';
+        formInputs.forEach(input => input.readOnly = true);
+        submitBtn.classList.add('hidden');
+        deleteBtn.classList.add('hidden');
+    } else {
+        formInputs.forEach(input => input.readOnly = false);
+        submitBtn.classList.remove('hidden');
+        // El deleteBtn se maneja abajo dependiendo de si es edicion/creacion
+    }
+
     eventModal.classList.add('active');
     
     if (eventId && eventObj) {
-        // Modo Editar
-        modalTitle.textContent = 'Editar Actividad';
-        deleteBtn.classList.remove('hidden');
+        // Modo Editar o Detalle
+        if (!isReadOnly) {
+            modalTitle.textContent = 'Editar Actividad';
+            deleteBtn.classList.remove('hidden');
+        }
         
         document.getElementById('eventTitle').value = eventObj.title;
         document.getElementById('startTime').value = eventObj.startTime;
@@ -387,7 +402,9 @@ function openEventModal(eventId = null, eventObj = null, showDateSelector = fals
         document.getElementById('endTime').value = `${endH}:${startM}`;
     }
     
-    setTimeout(() => document.getElementById('eventTitle').focus(), 100);
+    if (!isReadOnly) {
+        setTimeout(() => document.getElementById('eventTitle').focus(), 100);
+    }
 }
 
 function closeEventModal() {
