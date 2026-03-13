@@ -24,18 +24,6 @@ let unsubscribeEvents = null; // Para limpiar el listener si es necesario
 // Constantes visuales
 const HOUR_HEIGHT = 80;
 
-const USER_COLORS = {
-    'Nico': '#e11d48',    // Rose
-    'Mamá': '#8b5cf6',    // Violet
-    'Papá': '#0ea5e9',    // Cyan
-    'Otro': '#94a3b8'     // Muted
-};
-
-function getUserBadge(userName) {
-    const color = USER_COLORS[userName] || USER_COLORS['Otro'];
-    return `<span class="user-badge" style="background-color: ${color};">${userName.charAt(0)}</span>`;
-}
-
 // Referencias del DOM - Calendario Principal
 const currentMonthDisplay = document.getElementById('currentMonthDisplay');
 const calendarGrid = document.getElementById('calendarGrid');
@@ -241,10 +229,7 @@ function renderEventsForSelectedDay() {
         const isSmall = heightPx < 40;
         
         card.innerHTML = `
-            <div class="card-header">
-                ${getUserBadge(event.user || 'Otro')}
-                <div class="title" style="${isSmall ? 'margin-bottom:0;' : ''}">${event.title}</div>
-            </div>
+            <div class="title" style="${isSmall ? 'margin-bottom:0;' : ''}">${event.title}</div>
             ${!isSmall ? `<div class="time"><i class="far fa-clock"></i> ${event.startTime} - ${event.endTime}</div>` : ''}
         `;
         
@@ -317,10 +302,7 @@ function renderMonthlySummary() {
         const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'short' });
         
         item.innerHTML = `
-            <div class="item-header">
-                ${getUserBadge(ev.user || 'Otro')}
-                <div class="item-title">${ev.title}</div>
-            </div>
+            <div class="item-title">${ev.title}</div>
             <div class="item-meta">
                 <span><i class="far fa-calendar"></i> ${dayName} ${ev.dayNum}</span>
                 <span><i class="far fa-clock"></i> ${ev.startTime} - ${ev.endTime}</span>
@@ -403,7 +385,6 @@ function openEventModal(eventId = null, eventObj = null, showDateSelector = fals
         }
         
         document.getElementById('eventTitle').value = eventObj.title;
-        document.getElementById('eventUser').value = eventObj.user || '';
         document.getElementById('startTime').value = eventObj.startTime;
         document.getElementById('endTime').value = eventObj.endTime;
         document.getElementById('eventNotes').value = eventObj.notes || '';
@@ -436,15 +417,9 @@ function handleFormSubmit(e) {
     
     const eventId = document.getElementById('eventId').value;
     const title = document.getElementById('eventTitle').value.trim();
-    const user = document.getElementById('eventUser').value;
     const startTime = document.getElementById('startTime').value;
     const endTime = document.getElementById('endTime').value;
     const notes = document.getElementById('eventNotes').value.trim();
-    
-    if(!user) {
-        alert("Por favor selecciona un responsable.");
-        return;
-    }
     
     // Determinar la fecha bajo la cual se guardará (desde el input oculto o visible)
     const targetDate = eventDateInput.value;
@@ -459,7 +434,7 @@ function handleFormSubmit(e) {
         return;
     }
 
-    const eventData = { title, user, startTime, endTime, notes };
+    const eventData = { title, startTime, endTime, notes };
     const submitBtn = eventForm.querySelector('button[type="submit"]');
     const originalText = submitBtn.textContent;
     submitBtn.textContent = 'Guardando...';
