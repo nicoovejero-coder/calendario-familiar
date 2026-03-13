@@ -53,6 +53,7 @@ const modalTitle = document.getElementById('modalTitle');
 const deleteBtn = document.getElementById('deleteBtn');
 const dateInputGroup = document.getElementById('dateInputGroup');
 const eventDateInput = document.getElementById('eventDate');
+const testNotifyBtn = document.getElementById('testNotifyBtn');
 
 // === INICIALIZACIÓN ===
 function init() {
@@ -540,6 +541,28 @@ function setupEventListeners() {
     
     eventModal.addEventListener('click', (e) => {
         if (e.target === eventModal) closeEventModal();
+    });
+
+    testNotifyBtn.addEventListener('click', () => {
+        if (!("Notification" in window)) {
+            alert("Tu navegador no soporta notificaciones.");
+            return;
+        }
+
+        if (Notification.permission !== "granted") {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") sendTestNotification();
+            });
+        } else {
+            sendTestNotification();
+        }
+    });
+}
+
+function sendTestNotification() {
+    new Notification("Prueba de Cronograma", {
+        body: "¡Esto es una prueba! Así recibirás los avisos cada mañana a las 06:00 AM.",
+        icon: "https://cdn-icons-png.flaticon.com/512/3652/3652191.png"
     });
 }
 
