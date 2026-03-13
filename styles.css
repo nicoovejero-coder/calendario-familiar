@@ -1,0 +1,397 @@
+:root {
+    --bg-color: #0f172a;               /* Dark Slate */
+    --glass-bg: rgba(30, 41, 59, 0.6); /* Translucent Slate */
+    --glass-border: rgba(255, 255, 255, 0.08); /* Subtle white border */
+    --text-main: #f8fafc;              /* Off-white */
+    --text-muted: #94a3b8;             /* Muted Slate */
+    --accent: #8b5cf6;                 /* Vibrant Violet */
+    --accent-hover: #7c3aed;           /* Darker Violet */
+    --secondary-accent: #0ea5e9;       /* Cyan */
+    --danger: #ef4444;                 /* Red */
+    --danger-hover: #dc2626;           /* Dark Red */
+    --event-bg: rgba(139, 92, 246, 0.2);  /* Translucent Violet for blocks */
+    --event-border: rgba(139, 92, 246, 0.6);
+    --hour-height: 80px;               /* Height per hour in the timeline */
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--bg-color);
+    /* Very subtle mesh gradient background */
+    background-image: 
+        radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.15) 0px, transparent 50%);
+    background-attachment: fixed;
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+}
+
+/* App Container */
+.app-container {
+    width: 100%;
+    max-width: 600px;
+    height: 100vh; /* Mobile fallback */
+    height: 100dvh; /* Dynamic viewport height for real mobile browsers */
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5); /* Slight shadow if on desktop */
+}
+
+/* Header */
+.glass-header {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 1.25rem 1rem;
+    text-align: center;
+    z-index: 10;
+}
+
+.glass-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    background: linear-gradient(to right, #a78bfa, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+}
+
+.date-display {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+/* Timeline */
+.timeline-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    padding-bottom: 100px; /* Space for FAB */
+    scroll-behavior: smooth;
+}
+
+.timeline-hours {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 60px;
+    height: calc(24 * var(--hour-height));
+    border-right: 1px solid var(--glass-border);
+}
+
+.hour-marker {
+    height: var(--hour-height);
+    position: relative;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-align: right;
+    padding-right: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03); /* Subtle horizontal lines */
+}
+
+.hour-marker span {
+    position: relative;
+    top: -8px;
+    background: var(--bg-color); /* Hide line behind text */
+    padding: 0 4px;
+}
+
+/* Timeline Events Area */
+.timeline-events {
+    position: absolute;
+    left: 60px;
+    right: 0;
+    top: 0;
+    height: calc(24 * var(--hour-height));
+    background: repeating-linear-gradient(
+        transparent,
+        transparent calc(var(--hour-height) - 1px),
+        rgba(255, 255, 255, 0.03) var(--hour-height)
+    );
+}
+
+/* Event Cards */
+.event-card {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    background: var(--event-bg);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 10px 12px;
+    overflow: hidden;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    z-index: 5;
+}
+
+.event-card:active {
+    transform: scale(0.98);
+}
+
+.event-card .title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    color: #fff;
+}
+
+.event-card .time {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.event-card .time i {
+    font-size: 0.65rem;
+}
+
+/* Current Time Indicator */
+.current-time-line {
+    position: absolute;
+    left: 60px;
+    right: 0;
+    height: 2px;
+    background-color: var(--danger);
+    z-index: 8;
+    pointer-events: none;
+    box-shadow: 0 0 4px var(--danger);
+    transition: top 60s linear; /* Smoothly moves down */
+}
+
+.current-time-line .dot {
+    position: absolute;
+    left: -4px;
+    top: -4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--danger);
+}
+
+/* Floating Action Button */
+.fab {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--secondary-accent));
+    color: white;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 10px 20px -5px rgba(139, 92, 246, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
+    z-index: 20;
+}
+
+.fab:active {
+    transform: scale(0.9) rotate(45deg);
+}
+
+/* Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 100;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Glass Panel Modal Content */
+.glass-panel {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    width: 90%;
+    max-width: 400px;
+    padding: 1.5rem;
+    transform: translateY(30px) scale(0.95);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-overlay.active .glass-panel {
+    transform: translateY(0) scale(1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.modal-header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.close-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: var(--text-muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.close-btn:active {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--text-main);
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-main);
+    font-size: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* Customizing time input for mobile browsers to not look terrible in dark mode */
+input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(0.7);
+    cursor: pointer;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.btn {
+    padding: 0.8rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.1s, filter 0.2s, background 0.2s;
+    flex: 1; /* Makes buttons equal width */
+}
+
+.btn:active {
+    transform: scale(0.96);
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3);
+}
+
+.btn-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Custom Scrollbar for prettier look on desktop mapping over to mobile wrapper */
+::-webkit-scrollbar {
+    width: 4px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}

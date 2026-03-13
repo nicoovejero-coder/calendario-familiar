@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cronograma Familiar</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="glass-header">
+            <h1>Cronograma Familiar</h1>
+            <div class="date-display" id="currentDate">Cargando fecha...</div>
+        </header>
+
+        <main class="timeline-container">
+            <div class="timeline-hours" id="timelineHours">
+                <!-- Las horas se generarán desde JS -->
+            </div>
+            <div class="timeline-events" id="timelineEvents">
+                <!-- Los eventos (actividades) irán acá -->
+            </div>
+            <!-- Línea de tiempo actual -->
+            <div class="current-time-line" id="currentTimeLine">
+                <div class="dot"></div>
+            </div>
+        </main>
+
+        <button class="fab" id="addBtn">
+            <i class="fas fa-plus"></i>
+        </button>
+
+        <!-- Modal para agregar/editar actividades -->
+        <div class="modal-overlay" id="eventModal">
+            <div class="modal-content glass-panel">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Nueva Actividad</h2>
+                    <button type="button" class="close-btn" id="closeModalBtn"><i class="fas fa-times"></i></button>
+                </div>
+                <form id="eventForm">
+                    <input type="hidden" id="eventId">
+                    
+                    <div class="form-group">
+                        <label for="eventTitle">Título</label>
+                        <input type="text" id="eventTitle" required placeholder="Ej. Reunión familiar" autocomplete="off">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="startTime">Inicio</label>
+                            <input type="time" id="startTime" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="endTime">Fin</label>
+                            <input type="time" id="endTime" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="eventNotes">Notas / Detalles</label>
+                        <textarea id="eventNotes" rows="3" placeholder="Añadir detalles sobre esta actividad..."></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" id="deleteBtn" class="btn btn-danger hidden">Eliminar</button>
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de lógica de la App con Firebase -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
