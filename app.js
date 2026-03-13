@@ -1,6 +1,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getDatabase, ref, onValue, push, set, remove, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
+// Capturar errores globales para depuración en móvil
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+    alert("Error detectado: " + msg + "\nLínea: " + lineNo);
+    return false;
+};
+
 // Configuración de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDvBMIMiDuKU97R8Wie-0-T7I_BTrIS-Y8",
@@ -23,39 +29,45 @@ let unsubscribeEvents = null; // Para limpiar el listener si es necesario
 
 // Constantes visuales
 const HOUR_HEIGHT = 80;
-let lastNotificationDate = null; // Para evitar múltiples notificaciones el mismo día
 
-// Referencias del DOM - Calendario Principal
-const currentMonthDisplay = document.getElementById('currentMonthDisplay');
-const calendarGrid = document.getElementById('calendarGrid');
-const prevMonthBtn = document.getElementById('prevMonth');
-const nextMonthBtn = document.getElementById('nextMonth');
-const todayBtn = document.getElementById('todayBtn');
+// Variables para referencias del DOM
+let currentMonthDisplay, calendarGrid, prevMonthBtn, nextMonthBtn, todayBtn;
+let dayOverlay, closeDayBtn, selectedDateDisplay, timelineHoursEl, timelineEventsEl, currTimeLine, addBtn;
+let mainAddBtn, summaryList;
+let eventModal, closeModalBtn, eventForm, modalTitle, deleteBtn, dateInputGroup, eventDateInput;
 
-// Referencias del DOM - Day Overlay
-const dayOverlay = document.getElementById('dayOverlay');
-const closeDayBtn = document.getElementById('closeDayBtn');
-const selectedDateDisplay = document.getElementById('selectedDateDisplay');
-const timelineHoursEl = document.getElementById('timelineHours');
-const timelineEventsEl = document.getElementById('timelineEvents');
-const currTimeLine = document.getElementById('currentTimeLine');
-const addBtn = document.getElementById('addBtn');
-
-// Referencias del DOM - Main FAB y Summary
-const mainAddBtn = document.getElementById('mainAddBtn');
-const summaryList = document.getElementById('summaryList');
-
-// Referencias del DOM - Modal Formulario
-const eventModal = document.getElementById('eventModal');
-const closeModalBtn = document.getElementById('closeModalBtn');
-const eventForm = document.getElementById('eventForm');
-const modalTitle = document.getElementById('modalTitle');
-const deleteBtn = document.getElementById('deleteBtn');
-const dateInputGroup = document.getElementById('dateInputGroup');
-const eventDateInput = document.getElementById('eventDate');
+function refreshDOMReferences() {
+    currentMonthDisplay = document.getElementById('currentMonthDisplay');
+    calendarGrid = document.getElementById('calendarGrid');
+    prevMonthBtn = document.getElementById('prevMonth');
+    nextMonthBtn = document.getElementById('nextMonth');
+    todayBtn = document.getElementById('todayBtn');
+    
+    dayOverlay = document.getElementById('dayOverlay');
+    closeDayBtn = document.getElementById('closeDayBtn');
+    selectedDateDisplay = document.getElementById('selectedDateDisplay');
+    timelineHoursEl = document.getElementById('timelineHours');
+    timelineEventsEl = document.getElementById('timelineEvents');
+    currTimeLine = document.getElementById('currentTimeLine');
+    addBtn = document.getElementById('addBtn');
+    
+    mainAddBtn = document.getElementById('mainAddBtn');
+    summaryList = document.getElementById('summaryList');
+    
+    eventModal = document.getElementById('eventModal');
+    closeModalBtn = document.getElementById('closeModalBtn');
+    eventForm = document.getElementById('eventForm');
+    modalTitle = document.getElementById('modalTitle');
+    deleteBtn = document.getElementById('deleteBtn');
+    dateInputGroup = document.getElementById('dateInputGroup');
+    eventDateInput = document.getElementById('eventDate');
+}
 
 // === INICIALIZACIÓN ===
 function init() {
+    console.log("App initializing...");
+    refreshDOMReferences();
+    
     setupEventListeners();
     generateHourMarkers();
     
@@ -65,43 +77,8 @@ function init() {
     // Conectar Firebase
     listenAllEvents();
     
-    // Solicitar permiso de notificaciones
-    if ("Notification" in window) {
-        if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-            Notification.requestPermission();
-        }
-    }
-    
-    // Iniciar chequeo de notificaciones cada minuto
-    setInterval(checkDailyNotifications, 60000);
-    
     // Línea de tiempo actual
     setInterval(updateCurrentTimeLine, 60000);
-}
-
-function checkDailyNotifications() {
-    if (!("Notification" in window) || Notification.permission !== "granted") return;
-    
-    const now = new Date();
-    const todayStr = formatDateStr(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    // Si ya pasaron las 06:00 y no hemos notificado hoy, disparar
-    if (now.getHours() >= 6 && lastNotificationDate !== todayStr) {
-        const eventsToday = allEventsCache[todayStr];
-        
-        if (eventsToday) {
-            const count = Object.keys(eventsToday).length;
-            const message = count === 1 
-                ? "Tienes 1 actividad programada para hoy." 
-                : `Tienes ${count} actividades programadas para hoy.`;
-                
-            new Notification("Cronograma Familiar", {
-                body: message,
-                icon: "https://cdn-icons-png.flaticon.com/512/3652/3652191.png" // Icono de calendario genérico
-            });
-        }
-        lastNotificationDate = todayStr;
-    }
 }
 
 // === LÓGICA DEL CALENDARIO MENSUAL ===
@@ -544,3 +521,7 @@ function setupEventListeners() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+// Ejecución inmediata por si acaso (modulos ES son diferidos pero esto asegura)
+if (document.readyState === "complete" || document.readyState === "interactive") {
+    init();
+}
