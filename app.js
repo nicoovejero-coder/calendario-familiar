@@ -29,13 +29,12 @@ let unsubscribeEvents = null; // Para limpiar el listener si es necesario
 
 // Constantes visuales
 const HOUR_HEIGHT = 80;
-let lastNotificationDate = null; // Para evitar múltiples notificaciones el mismo día
 
 // Variables para referencias del DOM
 let currentMonthDisplay, calendarGrid, prevMonthBtn, nextMonthBtn, todayBtn;
 let dayOverlay, closeDayBtn, selectedDateDisplay, timelineHoursEl, timelineEventsEl, currTimeLine, addBtn;
 let mainAddBtn, summaryList;
-let eventModal, closeModalBtn, eventForm, modalTitle, deleteBtn, dateInputGroup, eventDateInput, testNotifyBtn;
+let eventModal, closeModalBtn, eventForm, modalTitle, deleteBtn, dateInputGroup, eventDateInput;
 
 function refreshDOMReferences() {
     currentMonthDisplay = document.getElementById('currentMonthDisplay');
@@ -62,7 +61,6 @@ function refreshDOMReferences() {
     deleteBtn = document.getElementById('deleteBtn');
     dateInputGroup = document.getElementById('dateInputGroup');
     eventDateInput = document.getElementById('eventDate');
-    testNotifyBtn = document.getElementById('testNotifyBtn');
 }
 
 // === INICIALIZACIÓN ===
@@ -70,10 +68,6 @@ function init() {
     console.log("App initializing...");
     refreshDOMReferences();
     
-    if (!testNotifyBtn) {
-        alert("Critico: No se encontró el botón de campana en el DOM");
-    }
-
     setupEventListeners();
     generateHourMarkers();
     
@@ -83,43 +77,8 @@ function init() {
     // Conectar Firebase
     listenAllEvents();
     
-    // Solicitar permiso de notificaciones
-    if ("Notification" in window) {
-        if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-            Notification.requestPermission();
-        }
-    }
-    
-    // Iniciar chequeo de notificaciones cada minuto
-    setInterval(checkDailyNotifications, 60000);
-    
     // Línea de tiempo actual
     setInterval(updateCurrentTimeLine, 60000);
-}
-
-function checkDailyNotifications() {
-    if (!("Notification" in window) || Notification.permission !== "granted") return;
-    
-    const now = new Date();
-    const todayStr = formatDateStr(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    // Si ya pasaron las 06:00 y no hemos notificado hoy, disparar
-    if (now.getHours() >= 6 && lastNotificationDate !== todayStr) {
-        const eventsToday = allEventsCache[todayStr];
-        
-        if (eventsToday) {
-            const count = Object.keys(eventsToday).length;
-            const message = count === 1 
-                ? "Tienes 1 actividad programada para hoy." 
-                : `Tienes ${count} actividades programadas para hoy.`;
-                
-            new Notification("Cronograma Familiar", {
-                body: message,
-                icon: "https://cdn-icons-png.flaticon.com/512/3652/3652191.png" // Icono de calendario genérico
-            });
-        }
-        lastNotificationDate = todayStr;
-    }
 }
 
 // === LÓGICA DEL CALENDARIO MENSUAL ===
@@ -558,42 +517,6 @@ function setupEventListeners() {
     
     eventModal.addEventListener('click', (e) => {
         if (e.target === eventModal) closeEventModal();
-    });
-
-    testNotifyBtn.addEventListener('click', () => {
-        console.log("Test Notify Button clicked");
-        alert("Botón de campana presionado"); // Verificar si el clic registra
-
-        if (!("Notification" in window)) {
-            alert("Error: Tu navegador no soporta notificaciones.");
-            return;
-        }
-
-        alert("Estado actual de permiso: " + Notification.permission);
-
-        if (Notification.permission !== "granted") {
-            alert("Solicitando permiso...");
-            Notification.requestPermission().then(permission => {
-                alert("Permiso recibido: " + permission);
-                if (permission === "granted") {
-                    sendTestNotification();
-                } else {
-                    alert("Permiso denegado por el usuario o el sistema.");
-                }
-            }).catch(err => {
-                alert("Error al solicitar permiso: " + err);
-            });
-        } else {
-            alert("Enviando notificación de prueba...");
-            sendTestNotification();
-        }
-    });
-}
-
-function sendTestNotification() {
-    new Notification("Prueba de Cronograma", {
-        body: "¡Esto es una prueba! Así recibirás los avisos cada mañana a las 06:00 AM.",
-        icon: "https://cdn-icons-png.flaticon.com/512/3652/3652191.png"
     });
 }
 
