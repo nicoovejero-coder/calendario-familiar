@@ -23,6 +23,7 @@ let unsubscribeEvents = null; // Para limpiar el listener si es necesario
 
 // Constantes visuales
 const HOUR_HEIGHT = 80;
+let lastNotificationDate = null; // Para evitar múltiples notificaciones el mismo día
 
 // Referencias del DOM - Calendario Principal
 const currentMonthDisplay = document.getElementById('currentMonthDisplay');
@@ -64,8 +65,43 @@ function init() {
     // Conectar Firebase
     listenAllEvents();
     
+    // Solicitar permiso de notificaciones
+    if ("Notification" in window) {
+        if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+            Notification.requestPermission();
+        }
+    }
+    
+    // Iniciar chequeo de notificaciones cada minuto
+    setInterval(checkDailyNotifications, 60000);
+    
     // Línea de tiempo actual
     setInterval(updateCurrentTimeLine, 60000);
+}
+
+function checkDailyNotifications() {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    
+    const now = new Date();
+    const todayStr = formatDateStr(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Si ya pasaron las 06:00 y no hemos notificado hoy, disparar
+    if (now.getHours() >= 6 && lastNotificationDate !== todayStr) {
+        const eventsToday = allEventsCache[todayStr];
+        
+        if (eventsToday) {
+            const count = Object.keys(eventsToday).length;
+            const message = count === 1 
+                ? "Tienes 1 actividad programada para hoy." 
+                : `Tienes ${count} actividades programadas para hoy.`;
+                
+            new Notification("Cronograma Familiar", {
+                body: message,
+                icon: "https://cdn-icons-png.flaticon.com/512/3652/3652191.png" // Icono de calendario genérico
+            });
+        }
+        lastNotificationDate = todayStr;
+    }
 }
 
 // === LÓGICA DEL CALENDARIO MENSUAL ===
@@ -414,7 +450,6 @@ function closeEventModal() {
 
 function handleFormSubmit(e) {
     e.preventDefault();
-    console.log("Form submit triggered");
     
     const eventId = document.getElementById('eventId').value;
     const title = document.getElementById('eventTitle').value.trim();
@@ -422,18 +457,16 @@ function handleFormSubmit(e) {
     const endTime = document.getElementById('endTime').value;
     const notes = document.getElementById('eventNotes').value.trim();
     
-    // Determinar la fecha bajo la cual se guardará (desde el input oculto o visible)
+    // Forzar que el valor sea YYYY-MM-DD (algunos navegadores pueden variar)
     const targetDate = eventDateInput.value;
     
-    console.log("Data to save:", { eventId, title, startTime, endTime, targetDate });
-    
-    if(!targetDate) {
-        alert("Error: Fecha base no determinada.");
+    if(!targetDate || targetDate === "") {
+        alert("Por favor selecciona una fecha válida.");
         return;
     }
     
     if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
-        alert("La hora de fin debe ser mayor a la hora de inicio.");
+        alert("La hora de fin debe ser mayor a la hora de inicio (Formato 24hs).");
         return;
     }
 
@@ -443,20 +476,26 @@ function handleFormSubmit(e) {
     submitBtn.textContent = 'Guardando...';
     submitBtn.disabled = true;
 
-    // Guardar en la ruta específica de la fecha: events/YYYY-MM-DD/id
+    const onSuccess = () => {
+        closeEventModal();
+        // Feedback visual de éxito
+        console.log("Evento guardado con éxito en:", targetDate);
+    };
+
+    const onError = (error) => {
+        alert("No se pudo guardar: " + error.message);
+        console.error("Firebase Error:", error);
+    };
+
     if (eventId) {
-        // NOTA: Si cambiara la fecha desde el summary view, habria que mover el nodo, 
-        // pero por simplicidad el modo edición solo actualiza sobre la ruta anterior descubriendo la fecha. 
-        // En un caso más complejo, haríamos remove(viejaRuta) + push(nuevaRuta). 
-        // Asumo que targetDate no se cambió severamente.
         update(ref(db, `events/${targetDate}/${eventId}`), eventData)
-            .then(() => closeEventModal())
-            .catch(e => alert("Error " + e))
+            .then(onSuccess)
+            .catch(onError)
             .finally(() => { submitBtn.textContent = originalText; submitBtn.disabled = false; });
     } else {
         push(ref(db, `events/${targetDate}`), eventData)
-            .then(() => closeEventModal())
-            .catch(e => alert("Error " + e))
+            .then(onSuccess)
+            .catch(onError)
             .finally(() => { submitBtn.textContent = originalText; submitBtn.disabled = false; });
     }
 }
