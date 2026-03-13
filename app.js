@@ -544,16 +544,30 @@ function setupEventListeners() {
     });
 
     testNotifyBtn.addEventListener('click', () => {
+        console.log("Test Notify Button clicked");
+        alert("Botón de campana presionado"); // Verificar si el clic registra
+
         if (!("Notification" in window)) {
-            alert("Tu navegador no soporta notificaciones.");
+            alert("Error: Tu navegador no soporta notificaciones.");
             return;
         }
 
+        alert("Estado actual de permiso: " + Notification.permission);
+
         if (Notification.permission !== "granted") {
+            alert("Solicitando permiso...");
             Notification.requestPermission().then(permission => {
-                if (permission === "granted") sendTestNotification();
+                alert("Permiso recibido: " + permission);
+                if (permission === "granted") {
+                    sendTestNotification();
+                } else {
+                    alert("Permiso denegado por el usuario o el sistema.");
+                }
+            }).catch(err => {
+                alert("Error al solicitar permiso: " + err);
             });
         } else {
+            alert("Enviando notificación de prueba...");
             sendTestNotification();
         }
     });
