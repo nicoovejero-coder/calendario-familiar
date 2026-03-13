@@ -163,6 +163,7 @@ function openDayOverlay(year, month, day) {
     
     // Animar la entrada
     dayOverlay.classList.add('active');
+    mainAddBtn.classList.add('hidden'); // Ocultar el botón general
     
     // Scroll inicial suave
     if (selectedDateStr === todayStr && !window.initialOverlayScrollDone) {
@@ -182,6 +183,7 @@ function openDayOverlay(year, month, day) {
 
 function closeDayOverlay() {
     dayOverlay.classList.remove('active');
+    mainAddBtn.classList.remove('hidden'); // Mostrar el botón general de nuevo
     selectedDateStr = null;
     window.initialOverlayScrollDone = false; // reset
 }
@@ -468,7 +470,10 @@ function setupEventListeners() {
     addBtn.addEventListener('click', () => openEventModal(null, null, false));
     
     // Add desde el panel principal MUESTRA el date input
-    mainAddBtn.addEventListener('click', () => openEventModal(null, null, true));
+    mainAddBtn.addEventListener('click', () => {
+        console.log("Main Add button clicked");
+        openEventModal(null, null, true);
+    });
     
     closeModalBtn.addEventListener('click', closeEventModal);
     eventForm.addEventListener('submit', handleFormSubmit);
