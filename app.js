@@ -204,17 +204,27 @@ function generateHourMarkers() {
 // === MOSTRAR EVENTOS EN EL TIMELINE DENTRO DEL DAY OVERLAY ===
 function renderEventsForSelectedDay() {
     timelineEventsEl.innerHTML = '';
+    document.querySelector('.timeline-container').style.removeProperty('--timeline-max-height');
     
     if (!selectedDateStr) return;
     
     const dayEvents = allEventsCache[selectedDateStr];
     if (!dayEvents) return; // No hay eventos este día
     
+    let maxMins = 24 * 60;
+    
     Object.entries(dayEvents).forEach(([id, event]) => {
         const startMins = timeToMinutes(event.startTime);
         let endMins = startMins + 30; // 30 minutos por defecto si no hay endTime
         if (event.endTime) {
             endMins = timeToMinutes(event.endTime);
+            if (endMins <= startMins) {
+                endMins += 24 * 60; // Next day
+            }
+        }
+        
+        if (endMins > maxMins) {
+            maxMins = endMins;
         }
         
         const topPx = (startMins / 60) * HOUR_HEIGHT;
@@ -244,6 +254,11 @@ function renderEventsForSelectedDay() {
         });
         timelineEventsEl.appendChild(card);
     });
+    
+    if (maxMins > 24 * 60) {
+        const maxPx = (maxMins / 60) * HOUR_HEIGHT;
+        document.querySelector('.timeline-container').style.setProperty('--timeline-max-height', `${maxPx}px`);
+    }
 }
 
 function timeToMinutes(timeStr) {
@@ -430,11 +445,6 @@ function handleFormSubmit(e) {
     
     if(!targetDate || targetDate === "") {
         alert("Por favor selecciona una fecha válida.");
-        return;
-    }
-    
-    if (endTime && timeToMinutes(endTime) <= timeToMinutes(startTime)) {
-        alert("La hora de fin debe ser mayor a la hora de inicio (Formato 24hs).");
         return;
     }
 

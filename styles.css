@@ -253,6 +253,13 @@ body {
     transition: opacity 0.5s ease 0.2s; /* Fade in after panel slides up */
 }
 
+.timeline-container::after {
+    content: '';
+    display: block;
+    width: 1px;
+    height: var(--timeline-max-height, calc(24 * var(--hour-height)));
+}
+
 .day-overlay.active .timeline-container {
     opacity: 1;
 }
@@ -262,7 +269,7 @@ body {
     left: 0;
     top: 0;
     width: 60px;
-    height: calc(24 * var(--hour-height));
+    height: var(--timeline-max-height, calc(24 * var(--hour-height)));
     border-right: 1px solid var(--glass-border);
 }
 
@@ -289,7 +296,7 @@ body {
     left: 60px;
     right: 0;
     top: 0;
-    height: calc(24 * var(--hour-height));
+    height: var(--timeline-max-height, calc(24 * var(--hour-height)));
     background: repeating-linear-gradient(
         transparent,
         transparent calc(var(--hour-height) - 1px),
