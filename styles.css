@@ -49,8 +49,19 @@ body {
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
 }
 
+/* Vista de Calendario */
+#calendarView {
+    height: 100%;
+    width: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
 /* Header General */
 .glass-header {
+    position: sticky;
+    top: 0;
     background: var(--glass-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);

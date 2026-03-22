@@ -212,7 +212,10 @@ function renderEventsForSelectedDay() {
     
     Object.entries(dayEvents).forEach(([id, event]) => {
         const startMins = timeToMinutes(event.startTime);
-        const endMins = timeToMinutes(event.endTime);
+        let endMins = startMins + 30; // 30 minutos por defecto si no hay endTime
+        if (event.endTime) {
+            endMins = timeToMinutes(event.endTime);
+        }
         
         const topPx = (startMins / 60) * HOUR_HEIGHT;
         const heightPx = ((endMins - startMins) / 60) * HOUR_HEIGHT;
@@ -227,10 +230,11 @@ function renderEventsForSelectedDay() {
         card.style.backgroundColor = `rgba(34, 197, 94, 0.15)`; // Translucent Green
         
         const isSmall = heightPx < 40;
+        const timeDisplay = event.endTime ? `${event.startTime} - ${event.endTime}` : `${event.startTime}`;
         
         card.innerHTML = `
             <div class="title" style="${isSmall ? 'margin-bottom:0;' : ''}">${event.title}</div>
-            ${!isSmall ? `<div class="time"><i class="far fa-clock"></i> ${event.startTime} - ${event.endTime}</div>` : ''}
+            ${!isSmall ? `<div class="time"><i class="far fa-clock"></i> ${timeDisplay}</div>` : ''}
         `;
         
         // Editar
@@ -300,12 +304,13 @@ function renderMonthlySummary() {
         // Calcular nombre del día corto
         const dateObj = new Date(year, month, ev.dayNum);
         const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'short' });
+        const timeDisplay = ev.endTime ? `${ev.startTime} - ${ev.endTime}` : `${ev.startTime}`;
         
         item.innerHTML = `
             <div class="item-title">${ev.title}</div>
             <div class="item-meta">
                 <span><i class="far fa-calendar"></i> ${dayName} ${ev.dayNum}</span>
-                <span><i class="far fa-clock"></i> ${ev.startTime} - ${ev.endTime}</span>
+                <span><i class="far fa-clock"></i> ${timeDisplay}</span>
             </div>
         `;
         
@@ -386,7 +391,7 @@ function openEventModal(eventId = null, eventObj = null, showDateSelector = fals
         
         document.getElementById('eventTitle').value = eventObj.title;
         document.getElementById('startTime').value = eventObj.startTime;
-        document.getElementById('endTime').value = eventObj.endTime;
+        document.getElementById('endTime').value = eventObj.endTime || '';
         document.getElementById('eventNotes').value = eventObj.notes || '';
     } else {
         // Modo Crear
@@ -396,10 +401,9 @@ function openEventModal(eventId = null, eventObj = null, showDateSelector = fals
         const now = new Date();
         const startH = now.getHours().toString().padStart(2, '0');
         const startM = now.getMinutes().toString().padStart(2, '0');
-        const endH = ((now.getHours() + 1) % 24).toString().padStart(2, '0');
         
         document.getElementById('startTime').value = `${startH}:${startM}`;
-        document.getElementById('endTime').value = `${endH}:${startM}`;
+        document.getElementById('endTime').value = '';
     }
     
     if (!isReadOnly) {
@@ -429,7 +433,7 @@ function handleFormSubmit(e) {
         return;
     }
     
-    if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+    if (endTime && timeToMinutes(endTime) <= timeToMinutes(startTime)) {
         alert("La hora de fin debe ser mayor a la hora de inicio (Formato 24hs).");
         return;
     }
